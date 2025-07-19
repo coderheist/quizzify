@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { Trophy, Clock, CheckCircle, XCircle, RotateCcw, Home } from 'lucide-react';
+import { Trophy, Clock, CheckCircle, XCircle, RotateCcw, Home, Brain, Target, TrendingUp } from 'lucide-react';
+import { QuizResult } from '../services/aiService';
 
 interface QuizResult {
   score: number;
@@ -11,8 +12,14 @@ interface QuizResult {
     userAnswer: number;
     correctAnswer: number;
     isCorrect: boolean;
+    timeTaken?: number;
   }>;
   feedback: string;
+  detailedAnalysis: {
+    strengths: string[];
+    weaknesses: string[];
+    recommendations: string[];
+  };
 }
 
 interface Quiz {
@@ -114,6 +121,64 @@ const ResultPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Detailed Analysis */}
+        {result.detailedAnalysis && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Strengths */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Strengths</h3>
+              </div>
+              <ul className="space-y-2">
+                {result.detailedAnalysis.strengths.map((strength, index) => (
+                  <li key={index} className="flex items-center space-x-2 text-sm text-gray-600">
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span>{strength}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Areas for Improvement */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <Target className="h-6 w-6 text-orange-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Focus Areas</h3>
+              </div>
+              <ul className="space-y-2">
+                {result.detailedAnalysis.weaknesses.map((weakness, index) => (
+                  <li key={index} className="flex items-center space-x-2 text-sm text-gray-600">
+                    <XCircle className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                    <span>{weakness}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Recommendations */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Brain className="h-6 w-6 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Recommendations</h3>
+              </div>
+              <ul className="space-y-2">
+                {result.detailedAnalysis.recommendations.map((recommendation, index) => (
+                  <li key={index} className="flex items-start space-x-2 text-sm text-gray-600">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <span>{recommendation}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
         {/* Question Review */}
         <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Question Review</h2>

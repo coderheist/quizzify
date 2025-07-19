@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { quizAPI } from '../services/api';
-import { GeneratedQuiz } from '../services/aiService';
+import { GeneratedQuiz, calculateQuizScore } from '../services/aiService';
 import Question from '../components/Question';
 import Timer from '../components/Timer';
 import Spinner from '../components/Spinner';
 import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, ArrowRight, CheckCircle, Clock, Brain } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface Quiz {
   _id: string;
@@ -33,6 +34,8 @@ const QuizPage: React.FC = () => {
   const [answers, setAnswers] = useState<{ [key: number]: number }>({});
   const [timeSpent, setTimeSpent] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [questionTimes, setQuestionTimes] = useState<{ [key: number]: number }>({});
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
 
   useEffect(() => {
     if (!user) {
@@ -72,21 +75,41 @@ const QuizPage: React.FC = () => {
   };
 
   const handleAnswerSelect = (answerIndex: number) => {
+    // Record time spent on this question
+    const timeOnQuestion = Math.floor((Date.now() - questionStartTime) / 1000);
+    setQuestionTimes(prev => ({
+      ...prev,
+      [currentQuestionIndex]: timeOnQuestion
+    }));
+    
     setAnswers({
       ...answers,
       [currentQuestionIndex]: answerIndex
     });
+    
+    toast.success('Answer selected!', { duration: 1000 });
   };
 
   const handleNext = () => {
     if (quiz && currentQuestionIndex < quiz.questions.length - 1) {
+      // Record time for current question if not already recorded
+      if (!(currentQuestionIndex in questionTimes)) {
+        const timeOnQuestion = Math.floor((Date.now() - questionStartTime) / 1000);
+        setQuestionTimes(prev => ({
+          ...prev,
+          [currentQuestionIndex]: timeOnQuestion
+        }));
+      }
+      
       setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setQuestionStartTime(Date.now());
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
+      setQuestionStartTime(Date.now());
     }
   };
 
@@ -94,46 +117,20 @@ const QuizPage: React.FC = () => {
     if (!quiz || !user) return;
 
     setIsSubmitting(true);
+    toast.loading('Calculating your results...', { id: 'submitting' });
+    
     try {
-      // Calculate results
-      let score = 0;
-      const results = quiz.questions.map((question, index) => {
-        const userAnswer = answers[index] ?? -1;
-        const isCorrect = userAnswer === question.correctAnswer;
-        if (isCorrect) score++;
-        
-        return {
-          questionId: question._id || `q${index + 1}`,
-          userAnswer,
-          correctAnswer: question.correctAnswer,
-          isCorrect
-        };
-      });
-
-      const percentage = Math.round((score / quiz.questions.length) * 100);
+      // Record final question time
+      const finalQuestionTime = Math.floor((Date.now() - questionStartTime) / 1000);
+      const finalQuestionTimes = {
+        ...questionTimes,
+        [currentQuestionIndex]: finalQuestionTime
+      };
       
-      // Generate feedback
-      const generateFeedback = (percentage: number) => {
-        if (percentage >= 90) {
-          return "Outstanding performance! You have mastered this topic exceptionally well. Your deep understanding is evident from your excellent choices throughout the quiz.";
-        } else if (percentage >= 80) {
-          return "Excellent work! You have a strong grasp of the material with only minor areas for improvement. Keep up the great work!";
-        } else if (percentage >= 70) {
-          return "Good job! You have a solid understanding of the basics, but there are some concepts that could use more attention. Review the areas where you made mistakes.";
-        } else if (percentage >= 60) {
-          return "You're making progress! While you have some understanding, there are significant areas for improvement. Focus on studying the core concepts more thoroughly.";
-        } else {
-          return "Keep learning! This quiz shows you need to spend more time with the fundamentals. Don't be discouraged - everyone starts somewhere, and with dedicated study, you can improve significantly.";
-        }
-      };
-
-      const result = {
-        score,
-        percentage,
-        timeSpent,
-        results,
-        feedback: generateFeedback(percentage)
-      };
+      // Use enhanced scoring system
+      const result = calculateQuizScore(quiz, answers, timeSpent, finalQuestionTimes);
+      
+      toast.success('Quiz completed!', { id: 'submitting' });
       
       // Navigate to results page
       navigate('/result', { 
@@ -144,6 +141,7 @@ const QuizPage: React.FC = () => {
       });
     } catch (error) {
       console.error('Error submitting quiz:', error);
+      toast.error('Failed to submit quiz. Please try again.', { id: 'submitting' });
     } finally {
       setIsSubmitting(false);
     }
@@ -204,6 +202,15 @@ const QuizPage: React.FC = () => {
                   <Clock className="h-4 w-4" />
                   <span>Time: {Math.floor(timeSpent / 60)}:{(timeSpent % 60).toString().padStart(2, '0')}</span>
                 </span>
+                {quiz.difficulty && (
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    quiz.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+                    quiz.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {quiz.difficulty.charAt(0).toUpperCase() + quiz.difficulty.slice(1)}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex-shrink-0">
